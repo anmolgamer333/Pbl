@@ -24,6 +24,7 @@ The app does **not** claim they are final IRC values.
 - Mix inputs by alternative (binder %, cellulose fiber %)
 - LCCA (agency costs only):
   - Initial construction
+  - Optional transport cost in initial construction (`Rs/ton-km` with material distances)
   - Maintenance/rehab events
   - Salvage at year 20 (entered as positive value, internally treated as negative cost)
   - Deterministic NPV at 3%, 4%, 6%

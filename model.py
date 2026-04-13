@@ -104,12 +104,19 @@ def compute_initial_construction_cost(
     quantities_by_alt_df: pd.DataFrame,
     unit_costs: Dict[str, float],
     area_m2: float,
+    transport_costs: Dict[str, float] | None = None,
 ) -> pd.DataFrame:
     """Compute deterministic initial agency construction cost."""
     agg_rate = float(unit_costs.get("aggregate_cost_per_kg", 0.0))
     binder_rate = float(unit_costs.get("binder_cost_per_kg", 0.0))
     fiber_rate = float(unit_costs.get("fiber_cost_per_kg", 0.0))
     laying_rate = float(unit_costs.get("laying_cost_per_m2", 0.0))
+    tc = transport_costs or {}
+    transport_rate = float(tc.get("transport_cost_per_tkm", 0.0))
+    agg_dist = float(tc.get("aggregate_distance_km", 0.0))
+    binder_dist = float(tc.get("binder_distance_km", 0.0))
+    fiber_dist = float(tc.get("fiber_distance_km", 0.0))
+    include_transport = bool(tc.get("include_transport_cost", False))
 
     out = quantities_by_alt_df.copy()
     out["Material_cost"] = (
@@ -117,9 +124,24 @@ def compute_initial_construction_cost(
         + out["binder_kg"] * binder_rate
         + out["fiber_kg"] * fiber_rate
     )
+    out["Transport_tkm"] = (
+        (out["aggregate_kg"] / 1000.0) * agg_dist
+        + (out["binder_kg"] / 1000.0) * binder_dist
+        + (out["fiber_kg"] / 1000.0) * fiber_dist
+    )
+    out["Transport_cost"] = out["Transport_tkm"] * transport_rate if include_transport else 0.0
     out["Laying_cost"] = laying_rate * area_m2
-    out["Initial_cost"] = out["Material_cost"] + out["Laying_cost"]
-    return out[["Alternative", "Material_cost", "Laying_cost", "Initial_cost"]]
+    out["Initial_cost"] = out["Material_cost"] + out["Transport_cost"] + out["Laying_cost"]
+    return out[
+        [
+            "Alternative",
+            "Material_cost",
+            "Transport_tkm",
+            "Transport_cost",
+            "Laying_cost",
+            "Initial_cost",
+        ]
+    ]
 
 
 def npv_from_events(events_df: pd.DataFrame, discount_rate: float) -> float:

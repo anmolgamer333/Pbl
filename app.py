@@ -210,6 +210,8 @@ with c3:
     fiber_rate = st.number_input("Fiber cost (Rs/kg)", min_value=0.0, value=0.0, step=0.1)
 with c4:
     laying_rate = st.number_input("Construction/Laying cost (Rs/m2, optional)", min_value=0.0, value=0.0, step=0.1)
+include_transport_cost_lcca = st.toggle("Include transport cost in LCCA initial construction", value=False)
+transport_cost_rate = st.number_input("Transport cost (Rs/ton-km)", min_value=0.0, value=0.0, step=0.01)
 
 st.subheader("Maintenance / Rehab + Salvage (LCCA)")
 auto_lcca_schedule = st.toggle(
@@ -301,22 +303,24 @@ include_non_asphalt_in_lca = st.checkbox(
     value=True,
 )
 
+st.subheader("Transport Distances (km)")
+d1, d2, d3 = st.columns(3)
+with d1:
+    d_agg = st.number_input("Aggregate transport distance (km)", min_value=0.0, value=0.0, step=1.0)
+with d2:
+    d_binder = st.number_input("Binder transport distance (km)", min_value=0.0, value=0.0, step=1.0)
+with d3:
+    d_fiber = st.number_input("Fiber transport distance (km)", min_value=0.0, value=0.0, step=1.0)
+
 transport_enabled = st.toggle("Enable transport impacts", value=False)
 if transport_enabled:
     t1, t2 = st.columns(2)
     with t1:
         t_gwp = st.number_input("Transport GWP (kgCO2e/ton-km)", min_value=0.0, value=0.0, step=0.0001, format="%.6f")
         t_energy = st.number_input("Transport Energy (MJ/ton-km)", min_value=0.0, value=0.0, step=0.0001, format="%.6f")
-    with t2:
-        d_agg = st.number_input("Aggregate transport distance (km)", min_value=0.0, value=0.0, step=1.0)
-        d_binder = st.number_input("Binder transport distance (km)", min_value=0.0, value=0.0, step=1.0)
-        d_fiber = st.number_input("Fiber transport distance (km)", min_value=0.0, value=0.0, step=1.0)
 else:
     t_gwp = 0.0
     t_energy = 0.0
-    d_agg = 0.0
-    d_binder = 0.0
-    d_fiber = 0.0
 
 run = st.button("Run LCA + LCCA", type="primary")
 
@@ -357,7 +361,18 @@ if run:
             "fiber_cost_per_kg": fiber_rate,
             "laying_cost_per_m2": laying_rate,
         }
-        initial_costs_df = compute_initial_construction_cost(quantities_by_alt_df, unit_costs, area_m2)
+        initial_costs_df = compute_initial_construction_cost(
+            quantities_by_alt_df,
+            unit_costs,
+            area_m2,
+            transport_costs={
+                "include_transport_cost": include_transport_cost_lcca,
+                "transport_cost_per_tkm": transport_cost_rate,
+                "aggregate_distance_km": d_agg,
+                "binder_distance_km": d_binder,
+                "fiber_distance_km": d_fiber,
+            },
+        )
 
         if auto_lcca_schedule:
             maintenance_df = _auto_maintenance_schedule(initial_costs_df, int(analysis_period))
@@ -402,6 +417,8 @@ if run:
 
     st.subheader("LCCA Results")
     st.dataframe(lcca_npvs_df, use_container_width=True)
+    st.caption("Initial construction cost breakdown")
+    st.dataframe(initial_costs_df, use_container_width=True)
     st.caption("LCCA event schedule used for NPV")
     st.dataframe(events_df.sort_values(["Alternative", "Year"]), use_container_width=True)
 
